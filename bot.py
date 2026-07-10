@@ -2,7 +2,6 @@ import random
 from telegram import Update, BotCommand
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# قائمة لحفظ اللاعبين
 players = []
 
 async def mafia_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -23,7 +22,6 @@ async def start_game_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("العدد قليل، نحتاج 6 على الأقل.")
         return
     
-    # توزيع الأدوار
     if 6 <= num <= 8:
         roles = ['مافيا', 'دكتور', 'شايب'] + ['مواطن'] * (num - 3)
     elif 9 <= num <= 12:
@@ -34,31 +32,24 @@ async def start_game_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     random.shuffle(roles)
     
-    # إرسال الأدوار بالخاص
     for i in range(num):
         try:
-            await context.bot.send_message(chat_id=players[i]['id'], text=f"دورك في هذه اللعبة هو: {roles[i]}")
+            await context.bot.send_message(chat_id=players[i]['id'], text=f"دورك هو: {roles[i]}")
         except:
-            await update.message.reply_text(f"تعذر مراسلة {players[i]['name']} (تأكد أنه ضغط Start في الخاص).")
+            await update.message.reply_text(f"تعذر مراسلة {players[i]['name']}.")
     
-    await update.message.reply_text("تم توزيع الأدوار في رسائل خاصة!")
+    await update.message.reply_text("تم توزيع الأدوار!")
 
-if name == 'main':
-    # ضع التوكن الخاص بك هنا بين العلامتين
+if __name__ == '__main__':
     TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
-    
     app = ApplicationBuilder().token(TOKEN).build()
-
-    # إعداد قائمة الأوامر
     commands = [
-        BotCommand("m", "بدء لعبة مافيا جديدة"),
-        BotCommand("join", "الانضمام للعبة"),
-        BotCommand("go", "بدء توزيع الأدوار")
+        BotCommand("m", "بدء لعبة"),
+        BotCommand("join", "انضمام"),
+        BotCommand("go", "توزيع الأدوار")
     ]
     app.bot.set_my_commands(commands)
-
     app.add_handler(CommandHandler("m", mafia_command))
     app.add_handler(CommandHandler("join", join_command))
     app.add_handler(CommandHandler("go", start_game_command))
-
     app.run_polling()
