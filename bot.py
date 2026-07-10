@@ -1,55 +1,84 @@
 import random
-from telegram import Update, BotCommand
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-players = []
+# هيكل بيانات اللعبة
+game = {
+    "is_running": False,
+    "phase": None, 
+    "players": [], # كل لاعب: {'id': id, 'name': name, 'role': None, 'is_alive': True}
+    "night_actions": {"mafia": None, "doctor": None, "seer": None}
+}
 
 async def mafia_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    players.clear()
+    game["players"] = []
+    game["is_running"] = True
     await update.message.reply_text("بدأت لعبة المافيا! أرسل /join للانضمام.")
 
 async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not game["is_running"]: return
     user = update.effective_user
-    if user.id not in [p['id'] for p in players]:
-        players.append({'id': user.id, 'name': user.first_name})
-        await update.message.reply_text(f"{user.first_name} انضم! العدد: {len(players)}")
-    else:
-        await update.message.reply_text("أنت مسجل بالفعل.")
+    if user.id not in [p['id'] for p in game["players"]]:
+        game["players"].append({'id': user.id, 'name': user.first_name, 'role': None, 'is_alive': True})
+        await update.message.reply_text(f"تم انضمام {user.first_name}، العدد: {len(game['players'])}")
 
-async def start_game_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    num = len(players)
-    if num < 6:
-        await update.message.reply_text("العدد قليل، نحتاج 6 على الأقل.")
+async def start_night(context: ContextTypes.DEFAULT_TYPE):
+    job = context.job
+    chat_id = job.chat_id
+    game["phase"] = "Night"
+    await context.bot.send_message(chat_id=chat_id, text="🌙 حل الظلام.. تفقدوا رسائلكم الخاصة لاتخاذ قراراتكم!")
+
+    # تجهيز الأزرار (قائمة اللاعبين)
+    keyboard = [[InlineKeyboardButton(p['name'], callback_data=str(p['id']))] for p in game["players"] if p['is_alive']]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    for p in game["players"]:
+        if p['role'] == 'مافيا':
+            await context.bot.send_message(p['id'], "أنت المافيا، اختر من تقتل:", reply_markup=reply_markup)
+        elif p['role'] == 'دكتور':
+            await context.bot.send_message(p['id'], "أنت الدكتور، اختر من تحمي:", reply_markup=reply_markup)
+        elif p['role'] == 'شايب':
+            await context.bot.send_message(p['id'], "أنت الشايب، اختر من تكشف:", reply_markup=reply_markup)
+
+# التعامل مع ضغط الأزرار
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    player_id = int(query.data)
+    user_id = query.from_user.id
+    
+    # تحديد الدور بناءً على من ضغط
+    player = next((p for p in game["players"] if p['id'] == user_id), None)
+    target = next((p for p in game["players"] if p['id'] == player_id), None)
+
+    if player['role'] == 'مافيا': game["night_actions"]["mafia"] = target['id']
+    elif player['role'] == 'دكتور': game["night_actions"]["doctor"] = target['id']
+    elif player['role'] == 'شايب': 
+        await query.edit_message_text(f"كشف: {target['name']} هو {target['role']}")
+        return
+
+    await query.edit_message_text(f"تم اختيار {target['name']} بنجاح.")
+
+async def go_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(game["players"]) < 6:
+        await update.message.reply_text("نحتاج 6 لاعبين على الأقل.")
         return
     
-    if 6 <= num <= 8:
-        roles = ['مافيا', 'دكتور', 'شايب'] + ['مواطن'] * (num - 3)
-    elif 9 <= num <= 12:
-        roles = ['مافيا', 'مافيا', 'دكتور', 'شايب'] + ['مواطن'] * (num - 4)
-    else:
-        await update.message.reply_text("العدد كبير جداً (أقصى حد 12).")
-        return
-
+    roles = ['مافيا', 'دكتور', 'شايب'] + ['مواطن'] * (len(game["players"]) - 3)
     random.shuffle(roles)
+    for i, p in enumerate(game["players"]):
+        p['role'] = roles[i]
+        await context.bot.send_message(p['id'], f"دورك هو: {p['role']}")
     
-    for i in range(num):
-        try:
-            await context.bot.send_message(chat_id=players[i]['id'], text=f"دورك هو: {roles[i]}")
-        except:
-            await update.message.reply_text(f"تعذر مراسلة {players[i]['name']}.")
-    
-    await update.message.reply_text("تم توزيع الأدوار!")
+    await update.message.reply_text("تم توزيع الأدوار. ستبدأ الليلة بعد 10 ثوانٍ.")
+    context.job_queue.run_once(start_night, 10, chat_id=update.effective_chat.id)
 
 if __name__ == '__main__':
-    TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
+    TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM'
     app = ApplicationBuilder().token(TOKEN).build()
-    commands = [
-        BotCommand("m", "بدء لعبة"),
-        BotCommand("join", "انضمام"),
-        BotCommand("go", "توزيع الأدوار")
-    ]
-    app.bot.set_my_commands(commands)
+    
     app.add_handler(CommandHandler("m", mafia_command))
     app.add_handler(CommandHandler("join", join_command))
-    app.add_handler(CommandHandler("go", start_game_command))
+    app.add_handler(CommandHandler("go", go_command))
+    app.add_handler(CallbackQueryHandler(button_click))
+    
     app.run_polling()
