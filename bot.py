@@ -1,84 +1,61 @@
-import random
-from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+try:
+                mute_permissions = ChatPermissions(can_send_messages=False, can_send_polls=False, can_send_other_messages=False)
+                await context.bot.restrict_chat_member(chat_id=chat_id, user_id=kicked_id, permissions=mute_permissions)
+                await context.bot.send_message(chat_id, f"🤫 *أُطبق الصمت!* تم كتم صوت المطرود {kicked_player['name']}، الموتى والأسرى لا يتحدثون.", parse_mode='Markdown')
+            except:
+                pass
 
-# هيكل بيانات اللعبة
-game = {
-    "is_running": False,
-    "phase": None, 
-    "players": [], # كل لاعب: {'id': id, 'name': name, 'role': None, 'is_alive': True}
-    "night_actions": {"mafia": None, "doctor": None, "seer": None}
-}
-
-async def mafia_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    game["players"] = []
-    game["is_running"] = True
-    await update.message.reply_text("بدأت لعبة المافيا! أرسل /join للانضمام.")
-
-async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not game["is_running"]: return
-    user = update.effective_user
-    if user.id not in [p['id'] for p in game["players"]]:
-        game["players"].append({'id': user.id, 'name': user.first_name, 'role': None, 'is_alive': True})
-        await update.message.reply_text(f"تم انضمام {user.first_name}، العدد: {len(game['players'])}")
-
-async def start_night(context: ContextTypes.DEFAULT_TYPE):
-    job = context.job
-    chat_id = job.chat_id
-    game["phase"] = "Night"
-    await context.bot.send_message(chat_id=chat_id, text="🌙 حل الظلام.. تفقدوا رسائلكم الخاصة لاتخاذ قراراتكم!")
-
-    # تجهيز الأزرار (قائمة اللاعبين)
-    keyboard = [[InlineKeyboardButton(p['name'], callback_data=str(p['id']))] for p in game["players"] if p['is_alive']]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    for p in game["players"]:
-        if p['role'] == 'مافيا':
-            await context.bot.send_message(p['id'], "أنت المافيا، اختر من تقتل:", reply_markup=reply_markup)
-        elif p['role'] == 'دكتور':
-            await context.bot.send_message(p['id'], "أنت الدكتور، اختر من تحمي:", reply_markup=reply_markup)
-        elif p['role'] == 'شايب':
-            await context.bot.send_message(p['id'], "أنت الشايب، اختر من تكشف:", reply_markup=reply_markup)
-
-# التعامل مع ضغط الأزرار
-async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    player_id = int(query.data)
-    user_id = query.from_user.id
+    if await check_game_over(context): return
     
-    # تحديد الدور بناءً على من ضغط
-    player = next((p for p in game["players"] if p['id'] == user_id), None)
-    target = next((p for p in game["players"] if p['id'] == player_id), None)
+    await context.bot.send_message(chat_id, "💤 *تستعد القرية للنوم مجدداً وعيونها تترقب..* تبدأ الليلة التالية بعد 10 ثوانٍ.", parse_mode='Markdown')
+    context.job_queue.run_once(start_night, 10)
 
-    if player['role'] == 'مافيا': game["night_actions"]["mafia"] = target['id']
-    elif player['role'] == 'دكتور': game["night_actions"]["doctor"] = target['id']
-    elif player['role'] == 'شايب': 
-        await query.edit_message_text(f"كشف: {target['name']} هو {target['role']}")
-        return
+async def check_game_over(context: ContextTypes.DEFAULT_TYPE):
+    alive_mafia = len([p for p in game["players"] if p['is_alive'] and p['role'] == 'مافيا'])
+    alive_citizens = len([p for p in game["players"] if p['is_alive'] and p['role'] != 'مافيا'])
+    chat_id = game["chat_id"]
 
-    await query.edit_message_text(f"تم اختيار {target['name']} بنجاح.")
-
-async def go_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(game["players"]) < 6:
-        await update.message.reply_text("نحتاج 6 لاعبين على الأقل.")
-        return
-    
-    roles = ['مافيا', 'دكتور', 'شايب'] + ['مواطن'] * (len(game["players"]) - 3)
-    random.shuffle(roles)
-    for i, p in enumerate(game["players"]):
-        p['role'] = roles[i]
-        await context.bot.send_message(p['id'], f"دورك هو: {p['role']}")
-    
-    await update.message.reply_text("تم توزيع الأدوار. ستبدأ الليلة بعد 10 ثوانٍ.")
-    context.job_queue.run_once(start_night, 10, chat_id=update.effective_chat.id)
+    if alive_mafia == 0:
+        await context.bot.send_message(
+            chat_id, 
+            "🎉 ✨ *ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*\n"
+            "🥳 *انـتـصـرت الـقـريـة الـمـسـالـمـة!* 🥳\n"
+            "تم القضاء وبنجاح باهر على آخر جرذ من أفراد المافيا البائسة وعاد الأمان!\n"
+            "*ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*", 
+            parse_mode='Markdown'
+        )
+        game["is_running"] = False
+        return True
+    elif alive_mafia >= alive_citizens:
+        await context.bot.send_message(
+            chat_id, 
+            "🩸 😈 *ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*\n"
+            "💀 *انـتـصـرت الـمـافـيـا الـدمـويـة!* 💀\n"
+            "سقطت المدينة بالكامل تحت وطأة الظلام وتصفية آخر مواطن شريف.. العب غيرها!\n"
+            "*ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*", 
+            parse_mode='Markdown'
+        )
+        game["is_running"] = False
+        return True
+    return False
 
 if __name__ == '__main__':
-    TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM'
+    TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
     app = ApplicationBuilder().token(TOKEN).build()
+    
+    commands = [
+        BotCommand("m", "بدء لعبة مافيا جديدة"),
+        BotCommand("join", "انضمام للعبة الحالية"),
+        BotCommand("go", "توزيع الأدوار وبدء الليل"),
+        BotCommand("vote", "فتح استطلاع التصويت في الجروب")
+    ]
+    app.bot.set_my_commands(commands)
     
     app.add_handler(CommandHandler("m", mafia_command))
     app.add_handler(CommandHandler("join", join_command))
     app.add_handler(CommandHandler("go", go_command))
+    app.add_handler(CommandHandler("vote", vote_command))
     app.add_handler(CallbackQueryHandler(button_click))
+    app.add_handler(PollAnswerHandler(handle_poll_answer))
     
     app.run_polling()
