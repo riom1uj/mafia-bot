@@ -1,4 +1,4 @@
-    import random
+import random
 import asyncio
 from telegram import Update, BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, PollAnswerHandler, ContextTypes
@@ -22,7 +22,7 @@ async def mafia_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎮 *ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*\n"
         "🔥 *بـدأت لـعـبـة الـمـافـيـا الـكـبـرى‌‏!* 🔥\n"
-        "أرسل الأمر /join الآن للدخول في المعركة⚔️\n"
+        "أرسل الأمر `/join` الآن للدخول في المعركة⚔️\n"
         "*ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*", 
         parse_mode='Markdown'
     )
@@ -35,8 +35,8 @@ async def join_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user.id not in [p['id'] for p in game["players"]]:
         game["players"].append({'id': user.id, 'name': user.first_name, 'role': None, 'is_alive': True})
         await update.message.reply_text(
-            f"📥 ✅ *تم انضمام اللاعب:* {user.first_name}\n"
-            f"📊 *العدد الحالي للتحالف:* [ {len(game['players'])} ]", 
+            f"📥 ✅ *تم انضمام اللاعب:* `{user.first_name}`\n"
+            f"📊 *العدد الحالي للتحالف:* `[ {len(game['players'])} ]`", 
             parse_mode='Markdown'
         )
     else:
@@ -46,7 +46,7 @@ async def night_reminder(context: ContextTypes.DEFAULT_TYPE):
     if game["phase"] == "Night":
         await context.bot.send_message(
             chat_id=game["chat_id"], 
-            text="⏳ 🔴 *تنبيه أخير:* متبقي 30 ثانية فقط وينتهي الليل! أسرعوا باتخاذ قراراتكم السريّة.",
+            text="⏳ 🔴 *تنبيه أخير:* متبقي `30 ثانية` فقط وينتهي الليل! أسرعوا باتخاذ قراراتكم السريّة.",
             parse_mode='Markdown'
         )
 
@@ -72,8 +72,8 @@ async def start_morning(context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id, 
                 f"🛡️ 🟢 *محاولة اغتيال فاشلة!*\n"
-                f"تسلل المافيا لقتل اللاعب {target_player['name']}، "
-                f"ولكن *الدكتور الشجاع* كان مختبئاً وحماه في الوقت المناسب! [ لا وفيات ] ✨",
+                f"تسلل المافيا لقتل اللاعب `{target_player['name']}`، "
+                f"ولكن *الدكتور الشجاع* كان مختبئاً وحماه في الوقت المناسب! `[ لا وفيات ]` ✨",
                 parse_mode='Markdown'
             )
         else:
@@ -83,7 +83,7 @@ async def start_morning(context: ContextTypes.DEFAULT_TYPE):
                     chat_id, 
                     f"💀 🩸 *جريمة بشعة هزّت أركان المدينة!*\n"
                     f"استيقظ الجميع على بركة من الدماء.. تم اغتيال اللاعب: \n"
-                    f"👉 *【 {target_player['name']} 】* واختفى أثره تماماً 🪦",
+                    f"👉 *【 `{target_player['name']}` 】* واختفى أثره تماماً 🪦",
                     parse_mode='Markdown'
                 )
     else:
@@ -96,10 +96,10 @@ async def start_morning(context: ContextTypes.DEFAULT_TYPE):
     game["night_actions"] = {"mafia": None, "doctor": None}
     if await check_game_over(context): return
 
-  await context.bot.send_message(
+    await context.bot.send_message(
         chat_id, 
         "🗣️ 👥 *مرحلة النقاش والشكوك مفتوحة الآن!*\n"
-        "تبادلوا الاتهامات وابحثوا عن المجرمين. عندما تستقرون، أرسلوا الأمر /vote لفتح صناديق الاقتراع وطرد المتهم.",
+        "تبادلوا الاتهامات وابحثوا عن المجرمين. عندما تستقرون، أرسلوا الأمر `/vote` لفتح صناديق الاقتراع وطرد المتهم.",
         parse_mode='Markdown'
     )
 
@@ -126,7 +126,7 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE):
             elif p['role'] == 'شايب':
                 await context.bot.send_message(p['id'], "👁️ 🔵 *أنت الشايب (العين الحكيمة):*\nاختر شخصاً لتكشف أوراقه وتعرف دوره الحقيقي سرّاً:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
         except:
-            await context.bot.send_message(chat_id, f"⚠️ *تنبيه:* تعذر إرسال الخيارات للاعب {p['name']} بالخاص (يجب أن يفعل البوت أولاً).", parse_mode='Markdown')
+            await context.bot.send_message(chat_id, f"⚠️ *تنبيه:* تعذر إرسال الخيارات للاعب `{p['name']}` بالخاص (يجب أن يفعل البوت أولاً).", parse_mode='Markdown')
 
     context.job_queue.run_once(night_reminder, 60)
     context.job_queue.run_once(start_morning, 90)
@@ -143,12 +143,12 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if player['role'] == 'مافيا':
         game["night_actions"]["mafia"] = target['id']
-        await query.edit_message_text(f"🎯 🔴 *صدر أمر الاغتيال المباشر ضد:* {target['name']}", parse_mode='Markdown')
+        await query.edit_message_text(f"🎯 🔴 *صدر أمر الاغتيال المباشر ضد:* `{target['name']}`", parse_mode='Markdown')
     elif player['role'] == 'دكتور':
         game["night_actions"]["doctor"] = target['id']
-        await query.edit_message_text(f"🛡️ 🟢 *وضعت درع الحماية والمراقبة على:* {target['name']}", parse_mode='Markdown')
+        await query.edit_message_text(f"🛡️ 🟢 *وضعت درع الحماية والمراقبة على:* `{target['name']}`", parse_mode='Markdown')
     elif player['role'] == 'شايب':
-        await query.edit_message_text(f"👁️ 🔍 *كشف البصيرة السري:* \nاللاعب {target['name']} دوره الحقيقي هو:  *【 {target['role']} 】*", parse_mode='Markdown')
+        await query.edit_message_text(f"👁️ 🔍 *كشف البصيرة السري:* \nاللاعب `{target['name']}` دوره الحقيقي هو:  *【 {target['role']} 】*", parse_mode='Markdown')
 
 async def go_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not game["is_running"] or game["phase"] is not None: return
@@ -167,9 +167,8 @@ async def go_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     random.shuffle(roles)
     
-    names_list = "\n".join([f"👤 ▪️ {p['name']}" for p in game["players"]])
-
-await update.message.reply_text(
+    names_list = "\n".join([f"👤 ▪️ `{p['name']}`" for p in game["players"]])
+    await update.message.reply_text(
         f"🎲 *ـــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ*\n"
         f"🔮 *جـاري سـحـب وتـوزيـع الأدوار الـسـرّيـة...*\n\n"
         f"*قائمة ساحة اللعب الحالية:*\n{names_list}\n"
@@ -182,9 +181,9 @@ await update.message.reply_text(
         try:
             await context.bot.send_message(p['id'], f"🎭 *بطاقتك السرية للعبة المافيا:* \nأنت تلعب الآن بدور:  *【 {p['role']} 】*", parse_mode='Markdown')
         except:
-            await update.message.reply_text(f"⚠️ *عذراً!* اللاعب {p['name']} لم يضغط Start بالخاص مع البوت، لن تصله الأدوار!", parse_mode='Markdown')
+            await update.message.reply_text(f"⚠️ *عذراً!* اللاعب `{p['name']}` لم يضغط Start بالخاص مع البوت، لن تصله الأدوار!", parse_mode='Markdown')
     
-    await update.message.reply_text("📬 *تطايرت الأوراق! وصلت الأدوار للجميع في الخاص سرّاً.*\n⏳ ستبدأ أولى الليالي المظلمة خلال 10 ثوانٍ... استعدوا!", parse_mode='Markdown')
+    await update.message.reply_text("📬 *تطايرت الأوراق! وصلت الأدوار للجميع في الخاص سرّاً.*\n⏳ ستبدأ أولى الليالي المظلمة خلال `10 ثوانٍ`... استعدوا!", parse_mode='Markdown')
     context.job_queue.run_once(start_night, 10)
 
 async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -246,20 +245,20 @@ async def end_voting(context: ContextTypes.DEFAULT_TYPE):
             kicked_player['is_alive'] = False
             
             if kicked_player['role'] == 'مافيا':
-                await context.bot.send_message(chat_id, f"💥 👺 *ضربة قاضية للعدو!*\nبأغلبية ساحقة تم نفي وطرد اللاعب *【 {kicked_player['name']} 】*، وتبين باليقين أنه كان من أفراد *[ المافيا ]*! 🔥", parse_mode='Markdown')
+                await context.bot.send_message(chat_id, f"💥 👺 *ضربة قاضية للعدو!*\nبأغلبية ساحقة تم نفي وطرد اللاعب *【 `{kicked_player['name']}` 】*، وتبين باليقين أنه كان من أفراد *[ المافيا ]*! 🔥", parse_mode='Markdown')
             else:
-                await context.bot.send_message(chat_id, f"⚖️ 💔 *ظلم العدالة القاسي!*\nبقرار من الشعب تم نفي اللاعب *【 {kicked_player['name']} 】* خارج أسوار القرية، ولم يكن من المافيا! دمه في رقابكم المستعجلة 🥺", parse_mode='Markdown')
+                await context.bot.send_message(chat_id, f"⚖️ 💔 *ظلم العدالة القاسي!*\nبقرار من الشعب تم نفي اللاعب *【 `{kicked_player['name']}` 】* خارج أسوار القرية، ولم يكن من المافيا! دمه في رقابكم المستعجلة 🥺", parse_mode='Markdown')
 
-          try:
+            try:
                 mute_permissions = ChatPermissions(can_send_messages=False, can_send_polls=False, can_send_other_messages=False)
                 await context.bot.restrict_chat_member(chat_id=chat_id, user_id=kicked_id, permissions=mute_permissions)
-                await context.bot.send_message(chat_id, f"🤫 *أُطبق الصمت!* تم كتم صوت المطرود {kicked_player['name']}، الموتى والأسرى لا يتحدثون.", parse_mode='Markdown')
+                await context.bot.send_message(chat_id, f"🤫 *أُطبق الصمت!* تم كتم صوت المطرود `{kicked_player['name']}`، الموتى والأسرى لا يتحدثون.", parse_mode='Markdown')
             except:
                 pass
 
     if await check_game_over(context): return
     
-    await context.bot.send_message(chat_id, "💤 *تستعد القرية للنوم مجدداً وعيونها تترقب..* تبدأ الليلة التالية بعد 10 ثوانٍ.", parse_mode='Markdown')
+    await context.bot.send_message(chat_id, "💤 *تستعد القرية للنوم مجدداً وعيونها تترقب..* تبدأ الليلة التالية بعد `10 ثوانٍ`.", parse_mode='Markdown')
     context.job_queue.run_once(start_night, 10)
 
 async def check_game_over(context: ContextTypes.DEFAULT_TYPE):
@@ -291,7 +290,7 @@ async def check_game_over(context: ContextTypes.DEFAULT_TYPE):
         return True
     return False
 
-if name == 'main':
+if __name__ == '__main__':
     TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
     app = ApplicationBuilder().token(TOKEN).build()
     
@@ -311,5 +310,3 @@ if name == 'main':
     app.add_handler(PollAnswerHandler(handle_poll_answer))
     
     app.run_polling()
-
-  
