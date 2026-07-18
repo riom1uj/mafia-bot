@@ -162,7 +162,7 @@ async def go_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not game["is_running"] or game["phase"] is not None: return
     num = len(game["players"])
     if num < 6:
-        await update.message.reply_text("❌ **العدد غير كافٍ!** نحتاج على الأعل إلى **6 لاعبين** لبدء اللعبة.")
+        await update.message.reply_text("❌ **العدد غير كافٍ!** نحتاج على الأقل إلى **6 لاعبين** لبدء اللعبة.")
         return
     
     if 6 <= num <= 8:
@@ -282,10 +282,8 @@ async def check_game_over(context: ContextTypes.DEFAULT_TYPE):
         return True
     return False
 
-if __name__ == '__main__':
-    TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
-    app = ApplicationBuilder().token(TOKEN).build()
-    
+# دالة التشغيل التلقائي لتحديث قائمة الأوامر فوراً
+async def on_startup(app):
     commands = [
         BotCommand("m", "بدء لعبة مافيا جديدة"),
         BotCommand("join", "انضمام للعبة الحالية"),
@@ -293,7 +291,16 @@ if __name__ == '__main__':
         BotCommand("vote", "فتح استطلاع التصويت بالجروب"),
         BotCommand("stop", "إنهاء وإغلاق اللعبة الحالية فوراً")
     ]
-    app.bot.set_my_commands(commands)
+    await app.bot.set_my_commands(commands)
+    print("🔹 تم تحديث قائمة الأوامر بنجاح في سيرفرات تلغرام!")
+
+if __name__ == '__main__':
+    TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
+    
+    app = ApplicationBuilder().token(TOKEN).build()
+    
+    # ربط دالة تحديث الأوامر عند إقلاع البوت
+    app.job_queue.run_once(lambda ctx: asyncio.create_task(on_startup(app)), 1)
     
     app.add_handler(CommandHandler("m", mafia_command))
     app.add_handler(CommandHandler("join", join_command))
