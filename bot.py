@@ -54,10 +54,13 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("ℹ️ **لا توجد لعبة تشغيل حالياً ليتم إيقافها.**")
         return
 
-    # إلغاء أي مؤقتات زاوية في الخلفية (الليل والتصويت) لتفادي الأخطاء
-    current_jobs = context.job_queue.jobs()
-    for job in current_jobs:
-        job.schedule_removal()
+    # إلغاء أي مؤقتات زاوية في الخلفية لتفادي الأخطاء إن وجدت
+    try:
+        current_jobs = context.job_queue.jobs()
+        for job in current_jobs:
+            job.schedule_removal()
+    except:
+        pass
 
     # إعادة تصفير الهيكل بالكامل
     game["is_running"] = False
@@ -134,8 +137,17 @@ async def start_night(context: ContextTypes.DEFAULT_TYPE):
         except:
             await context.bot.send_message(chat_id, f"⚠️ **تنبيه:** تعذر مراسلة ` {p['name']} ` في الخاص، يرجى تفعيل البوت بالضغط على Start.")
 
-    context.job_queue.run_once(night_reminder, 60)
-    context.job_queue.run_once(start_morning, 90)
+    if context.job_queue:
+        context.job_queue.run_once(night_reminder, 60)
+        context.job_queue.run_once(start_morning, 90)
+    else:
+        # حل بديل في حال غياب حزمة التوقيت بالسيرفر لضمان استمرار اللعبة
+        async def fallback_timer():
+            await asyncio.sleep(60)
+            await night_reminder(context)
+            await asyncio.sleep(30)
+            await start_morning(context)
+        asyncio.create_task(fallback_timer())
 
 # استقبال ضغطات الأزرار
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -186,7 +198,14 @@ async def go_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ **تنبيه مهم:** اللاعب ` {p['name']} ` لم يفعّل البوت في الخاص بعد!")
     
     await update.message.reply_text("📬 **تم إرسال الأدوار للجميع بالخاص!**\nستبدأ الليلة الأولى خلال 10 ثوانٍ، استعدوا...")
-    context.job_queue.run_once(start_night, 10)
+    
+    if context.job_queue:
+        context.job_queue.run_once(start_night, 10)
+    else:
+        async def fallback_start():
+            await asyncio.sleep(10)
+            await start_night(context)
+        asyncio.create_task(fallback_start())
 
 # فتح التصويت
 async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -212,7 +231,13 @@ async def vote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game["voting_results"] = {p['id']: 0 for p in game["players"] if p['is_alive']}
     game["voting_results"]["skip"] = 0
 
-    context.job_queue.run_once(end_voting, 60)
+    if context.job_queue:
+        context.job_queue.run_once(end_voting, 60)
+    else:
+        async def fallback_vote():
+            await asyncio.sleep(60)
+            await end_voting(context)
+        asyncio.create_task(fallback_vote())
 
 # استقبال أصوات الـ Poll
 async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -264,7 +289,14 @@ async def end_voting(context: ContextTypes.DEFAULT_TYPE):
     if await check_game_over(context): return
     
     await context.bot.send_message(chat_id, "💤 **تستعد القرية للنوم والظلام مجدداً...**\nتبدأ الليلة التالية خلال 10 ثوانٍ.")
-    context.job_queue.run_once(start_night, 10)
+    
+    if context.job_queue:
+        context.job_queue.run_once(start_night, 10)
+    else:
+        async def fallback_next_night():
+            await asyncio.sleep(10)
+            await start_night(context)
+        asyncio.create_task(fallback_next_night())
 
 # فحص الفوز
 async def check_game_over(context: ContextTypes.DEFAULT_TYPE):
@@ -282,8 +314,8 @@ async def check_game_over(context: ContextTypes.DEFAULT_TYPE):
         return True
     return False
 
-# دالة التشغيل التلقائي لتحديث قائمة الأوامر فوراً
-async def on_startup(app):
+# دالة تحديث قائمة الأوامر المباشرة عند التشغيل بنجاح
+async def post_init(application):
     commands = [
         BotCommand("m", "بدء لعبة مافيا جديدة"),
         BotCommand("join", "انضمام للعبة الحالية"),
@@ -291,16 +323,14 @@ async def on_startup(app):
         BotCommand("vote", "فتح استطلاع التصويت بالجروب"),
         BotCommand("stop", "إنهاء وإغلاق اللعبة الحالية فوراً")
     ]
-    await app.bot.set_my_commands(commands)
+    await application.bot.set_my_commands(commands)
     print("🔹 تم تحديث قائمة الأوامر بنجاح في سيرفرات تلغرام!")
 
 if __name__ == '__main__':
     TOKEN = '7736606565:AAH_6w8UqOe6UCQ9Q4rsrv-aR_AfGcW-BZM' 
     
-    app = ApplicationBuilder().token(TOKEN).build()
-    
-    # ربط دالة تحديث الأوامر عند إقلاع البوت
-    app.job_queue.run_once(lambda ctx: asyncio.create_task(on_startup(app)), 1)
+    # بناء التطبيق واستدعاء التحديث مباشرة عند التشغيل لتجنب مشاكل الـ JobQueue
+    app = ApplicationBuilder().token(TOKEN).post_init(post_init).build()
     
     app.add_handler(CommandHandler("m", mafia_command))
     app.add_handler(CommandHandler("join", join_command))
